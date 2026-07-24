@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
 const { guardarMensaje, obtenerHistorial } = require('./db.js');
-const { generarRespuesta } = require('./claude.js');
+const { generarRespuesta } = require('./deepseek.js');
 
 // ----- 1. Verificación del Webhook (Meta lo llama con GET) -----
 app.get('/webhook', (req, res) => {
@@ -101,7 +101,7 @@ app.post('/webhook', async (req, res) =>
 
         guardarMensaje(from, 'user', texto);
         const historial = obtenerHistorial(from);
-        const respuesta = 'Hola, recibí tu mensaje.';//await generarRespuesta(historial);
+        const respuesta = await generarRespuesta(historial);
         guardarMensaje(from, 'assistant', respuesta);
 
         await sendMessage(from, respuesta);
