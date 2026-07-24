@@ -13,20 +13,102 @@ tomar pedidos, y agendar citas. Sé breve y natural, como en una conversación r
 de WhatsApp (evita párrafos largos). Si el cliente quiere hacer un pedido o agendar
 una cita, guíalo para obtener los datos necesarios.`;
 
+const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'crear_pedido',
+      description: 'Crea un nuevo pedido cuando el cliente confirma qué productos quiere comprar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          telefono: { type: 'string', description: 'Número de teléfono del cliente' },
+          productos: {
+            type: 'string',
+            description: 'Descripción de los productos/servicios pedidos, con cantidades'
+          },
+          total_estimado: { type: 'string', description: 'Monto total estimado, si se conoce' },
+          notas: { type: 'string', description: 'Notas adicionales del pedido, si las hay' }
+        },
+        required: ['telefono', 'productos'],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'agendar_cita',
+      description: 'Agenda una cita cuando el cliente confirma día y hora deseados.',
+      parameters: {
+        type: 'object',
+        properties: {
+          telefono: { type: 'string', description: 'Número de teléfono del cliente' },
+          fecha: { type: 'string', description: 'Fecha de la cita en formato YYYY-MM-DD' },
+          hora: { type: 'string', description: 'Hora de la cita en formato HH:MM (24h)' },
+          motivo: { type: 'string', description: 'Motivo o servicio de la cita' }
+        },
+        required: ['telefono', 'fecha', 'hora'],
+        additionalProperties: false
+      }
+    }
+  }
+];
+
+
+const { crearPedido, agendarCita } = require('./acciones.js');
+
 async function generarRespuesta(historial) {
-  // El SDK de OpenAI espera el system prompt como parte del array de mensajes
   const mensajes = [
     { role: 'system', content: SYSTEM_PROMPT },
-    ...historial, // [{role: 'user'|'assistant', content: '...'}, ...]
+    ...historial,
   ];
 
-  const completion = await client.chat.completions.create({
+  let completion = await client.chat.completions.create({
     model: MODEL,
     messages: mensajes,
+    tools: tools,
     max_tokens: 500,
   });
 
-  return completion.choices[0].message.content;
+  let respuesta = completion.choices[0].message;
+
+  // Si el modelo pidió ejecutar una o más herramientas...
+  while (respuesta.tool_calls && respuesta.tool_calls.length > 0) {
+    mensajes.push(respuesta); // el mensaje del asistente con el tool_call
+
+    for (const toolCall of respuesta.tool_calls) {
+      const args = JSON.parse(toolCall.function.arguments);
+      let resultado;
+
+      if (toolCall.function.name === 'crear_pedido') {
+        resultado = crearPedido(args);
+      } else if (toolCall.function.name === 'agendar_cita') {
+        resultado = agendarCita(args);
+      } else {
+        resultado = { error: 'función no reconocida' };
+      }
+
+      // Le regresamos el resultado de la ejecución al modelo
+      mensajes.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(resultado),
+      });
+    }
+
+    // Volvemos a llamar al modelo para que redacte la respuesta final al cliente
+    completion = await client.chat.completions.create({
+      model: MODEL,
+      messages: mensajes,
+      tools: tools,
+      max_tokens: 500,
+    });
+
+    respuesta = completion.choices[0].message;
+  }
+
+  return respuesta.content;
 }
 
 module.exports = { generarRespuesta };
