@@ -77,14 +77,15 @@ async function generarRespuesta(historial) {
   while (respuesta.tool_calls && respuesta.tool_calls.length > 0) {
     mensajes.push(respuesta); // el mensaje del asistente con el tool_call
 
-    for (const toolCall of respuesta.tool_calls) {
+    for (const toolCall of respuesta.tool_calls) 
+    {
       const args = JSON.parse(toolCall.function.arguments);
       let resultado;
 
       if (toolCall.function.name === 'crear_pedido') {
-        resultado = crearPedido(args);
+        resultado = await crearPedido(args);
       } else if (toolCall.function.name === 'agendar_cita') {
-        resultado = agendarCita(args);
+        resultado = await agendarCita(args);
       } else {
         resultado = { error: 'función no reconocida' };
       }

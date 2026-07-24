@@ -1,13 +1,25 @@
-function crearPedido({ telefono, productos, total_estimado, notas }) {
+const { agregarPedido, agregarCita } = require('./sheets.js');
+
+async function crearPedido({ telefono, productos, total_estimado, notas }) {
   console.log('🛒 Nuevo pedido:', { telefono, productos, total_estimado, notas });
-  // Paso 6.4: aquí escribiremos a Google Sheets
-  return { exito: true, mensaje: 'Pedido registrado correctamente' };
+  try {
+    await agregarPedido({ telefono, productos, total_estimado, notas });
+    return { exito: true, mensaje: 'Pedido registrado correctamente' };
+  } catch (error) {
+    console.error('Error guardando pedido en Sheets:', error);
+    return { exito: false, mensaje: 'Hubo un problema registrando el pedido' };
+  }
 }
 
-function agendarCita({ telefono, fecha, hora, motivo }) {
+async function agendarCita({ telefono, fecha, hora, motivo }) {
   console.log('📅 Nueva cita:', { telefono, fecha, hora, motivo });
-  // Paso 6.4: aquí escribiremos a Google Sheets / Calendar
-  return { exito: true, mensaje: `Cita agendada para ${fecha} a las ${hora}` };
+  try {
+    await agregarCita({ telefono, fecha, hora, motivo });
+    return { exito: true, mensaje: `Cita agendada para ${fecha} a las ${hora}` };
+  } catch (error) {
+    console.error('Error guardando cita en Sheets:', error);
+    return { exito: false, mensaje: 'Hubo un problema agendando la cita' };
+  }
 }
 
 module.exports = { crearPedido, agendarCita };
